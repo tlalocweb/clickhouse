@@ -64,3 +64,51 @@ func TestCreateWithMap(t *testing.T) {
 	user.UpdatedAt = result.UpdatedAt
 	tests.AssertEqual(t, result, user)
 }
+
+// Just a sanity check on those structs - we will use them in association tests
+func TestCreateOnManyManyStructs(t *testing.T) {
+	var user = User2{ID: 789, Name: "create3", FirstName: "zhang", LastName: "jinzhu", Age: 18, Active: true, Salary: 6.6666}
+
+	// DB.Transaction(func(tx *gorm.DB) (err error) {
+	// 	if err = tx.Create(&user).Error; err != nil {
+	// 		t.Fatalf("failed to create user (User2), got error %v", err)
+	// 	}
+	// 	return err
+	// })
+	if err := DB.Create(&user).Error; err != nil {
+		t.Fatalf("failed to create user (User2), got error %v", err)
+	}
+
+	//	time.Sleep(1 * time.Second)
+
+	var email = Email{Email: "sadk@sad.com", Something: "just another field"}
+	// DB.Transaction(func(tx *gorm.DB) (err error) {
+	// 	if err = tx.Create(&email).Error; err != nil {
+	// 		t.Fatalf("failed to create email, got error %v", err)
+	// 	}
+	// 	return err
+	// })
+	if err := DB.Create(&email).Error; err != nil {
+		t.Fatalf("failed to create email, got error %v", err)
+	}
+
+	//	time.Sleep(1 * time.Second)
+
+	// THIS FAILS - not sure how to fix yet
+	// // ok now
+	// var anotheruser = User2{
+	// 	Name:      "many_to_many",
+	// 	FirstName: "many",
+	// 	LastName:  "to_many",
+	// 	Age:       18,
+	// 	Active:    true,
+	// 	Emails: []Email{
+	// 		{Email: "abc@abc.com"},
+	// 	},
+	// }
+
+	// if err := DB.Create(&anotheruser).Error; err != nil {
+	// 	t.Fatalf("failed to create user, got error %v", err)
+	// }
+
+}

@@ -41,6 +41,7 @@ func (t UpdateLocalTable) ModifySQL(sql string) string {
 }
 
 func (dialector *Dialector) Update(db *gorm.DB) {
+	//	dialector.Create(db)
 	if db.Error != nil {
 		return
 	}
@@ -71,6 +72,7 @@ func (dialector *Dialector) Update(db *gorm.DB) {
 	}
 
 	updateSQL := db.Statement.SQL.String()
+	debugf("update sql: %s", updateSQL)
 	if updateLocalTableClause, ok := db.Statement.Settings.Load(updateLocalTableName); ok && len(dialector.options.Addr) >= 1 {
 		if updateLocalTable, ok := updateLocalTableClause.(UpdateLocalTable); ok {
 			var (

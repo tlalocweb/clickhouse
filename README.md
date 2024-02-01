@@ -112,9 +112,35 @@ func main() {
     DefaultGranularity: 3,            // 1 granule = 8192 rows
     DefaultCompression: "LZ4",        // default compression algorithm. LZ4 is lossless
     DefaultIndexType: "minmax",       // index stores extremes of the expression
-    DefaultTableEngineOpts: "ENGINE=MergeTree() ORDER BY tuple()",
+    // the default engine if the driver does not determine an ENGINE or if one is not specified.
+    DefaultTableEngineOpts: "ENGINE=MergeTree() ORDER BY tuple()", 
   }), &gorm.Config{})
 }
 ```
+
+### Debugging
+
+In one terminal start clickhouse with the docker compose yaml.
+
+```
+docker compose up
+```
+
+Use `-tags debug` build flag for more debug output
+
+```
+go test -tags debug -v
+```
+
+Once clickhouse is running, you can:
+```
+docker exec -it gorm-test-clickhouse clickhouse-client
+```
+
+If you need an interactive clickhouse client for debugging.
+
+Clean up with `docker compose rm -fsv`
+
+---
 
 Checkout [https://gorm.io](https://gorm.io) for details.

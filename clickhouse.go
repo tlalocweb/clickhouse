@@ -176,8 +176,8 @@ func (dialector Dialector) ClauseBuilders() map[string]clause.ClauseBuilder {
 			builder.WriteString(" DELETE")
 		},
 		"UPDATE": func(c clause.Clause, builder clause.Builder) {
+			debugf("In UPDATE clause builder\n")
 			builder.WriteString("ALTER TABLE ")
-
 			var addedTable bool
 			if stmt, ok := builder.(*gorm.Statement); ok {
 				if c, ok := stmt.Clauses["FROM"]; ok {

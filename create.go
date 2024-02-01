@@ -42,6 +42,7 @@ func (dialector *Dialector) Create(db *gorm.DB) {
 		}
 
 		if !db.DryRun && db.Error == nil {
+			debugf("create sql: %s", db.Statement.SQL.String())
 			_, err := db.Statement.ConnPool.ExecContext(db.Statement.Context, db.Statement.SQL.String(), db.Statement.Vars...)
 			db.AddError(err)
 		}

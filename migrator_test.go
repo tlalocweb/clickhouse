@@ -21,6 +21,34 @@ type User struct {
 	UpdatedAt time.Time
 }
 
+type Email struct {
+	Email     string `gorm:"primaryKey"`
+	Something string
+}
+
+type User2 struct {
+	ID        uint64 `gorm:"primaryKey"`
+	Name      string
+	FirstName string
+	LastName  string
+	Age       int64
+	Active    bool
+	Emails    []Email `gorm:"many2many:email_to_user2"`
+	Salary    float32
+	CreatedAt time.Time
+	UpdatedAt time.Time `gorm:"version"`
+}
+
+func TestAutoMigrateManyToMany(t *testing.T) {
+	if err := DB.AutoMigrate(&User2{}, &Email{}); err != nil {
+		t.Fatalf("no error should happen when auto migrate, but got %v", err)
+	}
+
+	if err := DB.AutoMigrate(&User2{}, &Email{}); err != nil {
+		t.Fatalf("no error should happen when auto migrate again, but got %v", err)
+	}
+}
+
 func TestAutoMigrate(t *testing.T) {
 	type UserMigrateColumn struct {
 		ID           uint64
@@ -111,9 +139,9 @@ func TestMigrator_DontSupportEmptyDefaultValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Can not parse dsn, got error %v", err)
 	}
-	
+
 	DB, err := gorm.Open(clickhouse.New(clickhouse.Config{
-		Conn: clickhousego.OpenDB(options),
+		Conn:                         clickhousego.OpenDB(options),
 		DontSupportEmptyDefaultValue: true,
 	}))
 	if err != nil {

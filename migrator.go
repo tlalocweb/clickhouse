@@ -78,7 +78,52 @@ func (m Migrator) FullDataTypeOf(field *schema.Field) (expr clause.Expr) {
 	return expr
 }
 
+// NOTE: clickhouse does not support primary keys.
+// In order to have the effect of a primary key, we need to use the
+// ReplacingMergeTree engine: https://clickhouse.com/docs/en/engines/table-engines/mergetree-family/replacingmergetree
+// where the desired "primary key" is the ORDER BY parameter and the "version" field for ReplacingMergeTree is
+// a field marked `gorm:"version"` OR  - if not tagged - is the UpdatedAt field. If neither is there, then we will
+// default to the DefaultTableEngineOpts (which is ENGINE MergeTree(...) ORDER BY tuple() if not set)
+func (m Migrator) determineEngine(stmt *gorm.Statement) (ret string) {
+	ret = m.Dialector.DefaultTableEngineOpts
+
+	// If we want unique key, we need to use
+	// psuedo code here: ENGINE ReplacingMergeTree($version) ORDER BY $primary
+	var primary string
+	// This is the field which determined which entry wins, if rows have the same "primary" value
+	var version string
+
+	for _, dbName := range stmt.Schema.DBNames {
+		field := stmt.Schema.FieldsByDBName[dbName]
+		if _, ok := field.TagSettings["PRIMARYKEY"]; ok {
+			primary = field.DBName
+		}
+		if _, ok := field.TagSettings["VERSION"]; ok {
+			version = field.DBName
+		}
+		if dbName == "updated_at" && len(version) < 1 && field.FieldType.String() == "time.Time" {
+			version = field.DBName
+		}
+	}
+	if len(primary) > 0 && len(version) > 0 {
+		ret = fmt.Sprintf("ENGINE ReplacingMergeTree(%s) ORDER BY %s", version, primary)
+	}
+	debugf("==== DEBUG ==== determineEngine() primary= %s versionfield=%s --> %s\n", primary, version, ret)
+	// does this
+
+	return
+}
+
 // Tables
+
+func (m Migrator) CreateConstraint(value interface{}, name string) error {
+	// It's a NOOP for clickhouse. FOREIGN KEY is not supported in a constraint in CH.
+	// The only supported constraint's are documented here:
+	// https://clickhouse.com/docs/en/sql-reference/statements/alter/constraint
+	// more
+	// https://stackoverflow.com/questions/66354832/how-can-i-use-functionality-of-primary-key-and-foreign-key-in-clickhouse
+	return nil
+}
 
 func (m Migrator) CreateTable(models ...interface{}) error {
 	for _, model := range m.ReorderModels(models, false) {
@@ -93,6 +138,7 @@ func (m Migrator) CreateTable(models ...interface{}) error {
 			columnSlice := make([]string, 0, len(stmt.Schema.DBNames))
 			for _, dbName := range stmt.Schema.DBNames {
 				field := stmt.Schema.FieldsByDBName[dbName]
+				debugf("==== DEBUG ==== CreateTable() %s field [%v] %+v\n", dbName, field.TagSettings, field)
 				columnSlice = append(columnSlice, "? ?")
 				args = append(args,
 					clause.Column{Name: dbName},
@@ -114,6 +160,7 @@ func (m Migrator) CreateTable(models ...interface{}) error {
 			if len(constrSlice) > 0 {
 				constrStr = ", " + constrStr
 			}
+			debugf("==== DEBUG ==== CreateTable() constrStr %s\n", constrStr)
 
 			// Step 3. Build index SQL string
 			// NOTE: clickhouse does not support for index class.
@@ -155,7 +202,9 @@ func (m Migrator) CreateTable(models ...interface{}) error {
 			}
 
 			// Step 4. Finally assemble CREATE TABLE ... SQL string
-			engineOpts := m.Dialector.DefaultTableEngineOpts
+			//			engineOpts := m.Dialector.DefaultTableEngineOpts
+			//			debugf("determineEngine = %s\n", m.determineEngine(stmt))
+			engineOpts := m.determineEngine(stmt)
 			if tableOption, ok := m.DB.Get("gorm:table_options"); ok {
 				engineOpts = fmt.Sprint(tableOption)
 			}
@@ -164,9 +213,15 @@ func (m Migrator) CreateTable(models ...interface{}) error {
 			if clusterOption, ok := m.DB.Get("gorm:table_cluster_options"); ok {
 				clusterOpts = " " + fmt.Sprint(clusterOption) + " "
 			}
-
+			debugf("==== DEBUG ==== CreateTable() model %+v\n", model)
+			debugf("==== DEBUG ==== CreateTable() createTableSQL %s\n", createTableSQL)
+			debugf("==== DEBUG ==== CreateTable() clusterOpts %s\n", clusterOpts)
+			debugf("==== DEBUG ==== CreateTable() columnStr %s\n", columnStr)
+			debugf("==== DEBUG ==== CreateTable() constrStr %s\n", constrStr)
+			debugf("==== DEBUG ==== CreateTable() indexStr %s\n", indexStr)
+			debugf("==== DEBUG ==== CreateTable() engineOpts %s\n", engineOpts)
 			createTableSQL = fmt.Sprintf(createTableSQL, clusterOpts, columnStr, constrStr, indexStr, engineOpts)
-
+			debugf("==== DEBUG ==== CreateTable() createTableSQL %s\n", createTableSQL)
 			err = tx.Exec(createTableSQL, args...).Error
 
 			return
